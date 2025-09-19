@@ -11,6 +11,13 @@ interface FileProcessingResult {
   language: string;
 }
 
+interface FileTreeNode {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  children: FileTreeNode[];
+}
+
 async function getSelectedFiles(): Promise<vscode.Uri[]> {
   const visibleTextEditors = vscode.window.visibleTextEditors;
   if (visibleTextEditors.length > 0) {
@@ -64,21 +71,110 @@ function formatContent(result: FileProcessingResult): string {
 
 function getAllFilesRecursively(directoryPath: string): string[] {
   let files: string[] = [];
-  
+
   const items = fs.readdirSync(directoryPath);
-  
+
   for (const item of items) {
+    // Skip hidden files and common ignore patterns
+    if (item.startsWith('.') ||
+        item === 'node_modules' ||
+        item === 'out' ||
+        item === 'dist' ||
+        item === 'build') {
+      continue;
+    }
+
     const fullPath = path.join(directoryPath, item);
     const stats = fs.statSync(fullPath);
-    
+
     if (stats.isDirectory()) {
       files = files.concat(getAllFilesRecursively(fullPath));
     } else if (stats.isFile()) {
       files.push(fullPath);
     }
   }
-  
+
   return files;
+}
+
+function buildFileTree(filePaths: string[], basePath: string): FileTreeNode {
+  const root: FileTreeNode = {
+    name: path.basename(basePath) || 'project',
+    path: '',
+    isDirectory: true,
+    children: []
+  };
+
+  for (const filePath of filePaths) {
+    const relativePath = path.relative(basePath, filePath);
+    const parts = relativePath.split(path.sep);
+
+    let currentNode = root;
+    let currentPath = '';
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      currentPath = currentPath ? path.join(currentPath, part) : part;
+      const isLastPart = i === parts.length - 1;
+
+      let existingChild = currentNode.children.find(child => child.name === part);
+
+      if (!existingChild) {
+        existingChild = {
+          name: part,
+          path: currentPath,
+          isDirectory: !isLastPart,
+          children: []
+        };
+        currentNode.children.push(existingChild);
+      }
+
+      currentNode = existingChild;
+    }
+  }
+
+  return root;
+}
+
+function generateTreeString(node: FileTreeNode, prefix: string = '', isLast: boolean = true): string {
+  let result = '';
+  const connector = isLast ? '└── ' : '├── ';
+
+  if (node.path !== '') { // Skip root node name
+    result += prefix + connector + node.name + '\n';
+  }
+
+  const childPrefix = node.path !== '' ? prefix + (isLast ? '    ' : '│   ') : '';
+  const sortedChildren = [...node.children].sort((a, b) => {
+    if (a.isDirectory !== b.isDirectory) {
+      return a.isDirectory ? -1 : 1; // Directories first
+    }
+    return a.name.localeCompare(b.name);
+  });
+
+  sortedChildren.forEach((child, index) => {
+    const isChildLast = index === sortedChildren.length - 1;
+    result += generateTreeString(child, childPrefix, isChildLast);
+  });
+
+  return result;
+}
+
+function generateFileStructure(processedFiles: FileProcessingResult[], basePath: string): string {
+  if (processedFiles.length === 0) {
+    return '';
+  }
+
+  if (processedFiles.length === 1) {
+    // Single file - no tree needed
+    return '';
+  }
+
+  const filePaths = processedFiles.map(file => path.join(basePath, file.relativePath));
+  const tree = buildFileTree(filePaths, basePath);
+  const treeString = generateTreeString(tree);
+
+  return `## File Structure\n\`\`\`\n${tree.name}/\n${treeString}\`\`\`\n\n`;
 }
 
 async function processFileOrDirectory(uri: vscode.Uri): Promise<string> {
@@ -127,14 +223,47 @@ export function activate(context: vscode.ExtensionContext) {
           return;
         }
 
-        let aggregatedContent = '';
+        let allProcessedFiles: FileProcessingResult[] = [];
+        let basePath = '';
+
+        // Collect all processed files first
         for (const file of filesToProcess) {
-          aggregatedContent += await processFileOrDirectory(file);
+          const workspaceFolder = vscode.workspace.getWorkspaceFolder(file);
+          if (workspaceFolder) {
+            basePath = workspaceFolder.uri.fsPath;
+            const fileStats = fs.statSync(file.fsPath);
+
+            if (fileStats.isDirectory()) {
+              const allFiles = getAllFilesRecursively(file.fsPath);
+              for (const filePath of allFiles) {
+                const result = processFile(filePath, basePath);
+                if (result) {
+                  allProcessedFiles.push(result);
+                }
+              }
+            } else {
+              const result = processFile(file.fsPath, basePath);
+              if (result) {
+                allProcessedFiles.push(result);
+              }
+            }
+          }
         }
 
-        if (aggregatedContent) {
-          await vscode.env.clipboard.writeText(aggregatedContent);
-          vscode.window.showInformationMessage("Content copied to clipboard!");
+        if (allProcessedFiles.length > 0) {
+          // Generate file structure if multiple files
+          let finalContent = generateFileStructure(allProcessedFiles, basePath);
+
+          // Add individual file contents
+          for (const file of allProcessedFiles) {
+            finalContent += formatContent(file);
+          }
+
+          await vscode.env.clipboard.writeText(finalContent);
+          const message = allProcessedFiles.length === 1
+            ? "1 file copied to clipboard!"
+            : `${allProcessedFiles.length} files copied to clipboard!`;
+          vscode.window.showInformationMessage(message);
         } else {
           vscode.window.showInformationMessage("No text files found or selected!");
         }
