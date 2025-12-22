@@ -114,7 +114,7 @@ brew install vsce
 
 ```bash
 vsce package
-code --install-extension power-clipper-1.3.0.vsix
+code --install-extension power-clipper-1.0.0.vsix
 ```
 
 ## TODO

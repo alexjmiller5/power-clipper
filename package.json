@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/alexjmiller5/power-clipper"
   },
-  "icon": "",
+  "icon": "logo.png",
   "version": "1.0.0",
   "engines": {
     "vscode": "^1.104.0"
