@@ -7,15 +7,14 @@ import {
   getAllFilesRecursively, 
   generateOutput, 
   FileProcessingResult,
-  DEFAULT_TEMPLATE
+  DEFAULT_FILE_TEMPLATE,
+  DEFAULT_TREE_TEMPLATE,
+  StructureFormat
 } from "./core";
 
-// ... (getSelectedFiles helper remains same) ...
 async function getSelectedFiles(): Promise<vscode.Uri[]> {
     const visibleTextEditors = vscode.window.visibleTextEditors;
     if (visibleTextEditors.length > 0) {
-      // If we have an active editor, prioritize that, otherwise use visible
-      // But standard behavior usually checks active editor or explorer context.
       const active = vscode.window.activeTextEditor;
       if (active) return [active.document.uri];
     }
@@ -35,9 +34,14 @@ async function processSelections(
     commonBasePath = workspace ? workspace.uri.fsPath : path.dirname(uris[0].fsPath);
   }
 
+  // READ SETTINGS
   const config = vscode.workspace.getConfiguration('powerClipper');
   const userExcludes = config.get<string[]>('alwaysExclude') || [];
-  const template = config.get<string>('formatTemplate') || DEFAULT_TEMPLATE;
+  const userIncludes = config.get<string[]>('alwaysInclude') || [];
+  const fileTemplate = config.get<string>('fileTemplate') || DEFAULT_FILE_TEMPLATE;
+  const treeTemplate = config.get<string>('treeTemplate') || DEFAULT_TREE_TEMPLATE;
+  const useGitIgnore = config.get<boolean>('useGitIgnore') ?? true;
+  const structureFormat = config.get<StructureFormat>('structureFormat') || 'repo';
 
   const ignoreHelpers = new Map<string, GitIgnoreHelper>();
 
@@ -53,20 +57,29 @@ async function processSelections(
       const workspaceRoot = vscode.workspace.getWorkspaceFolder(uri)?.uri.fsPath;
       
       let ignoreHelper: GitIgnoreHelper | null = null;
-      if (workspaceRoot) {
+      
+      // Only initialize helper if the setting is ON
+      if (useGitIgnore && workspaceRoot) {
         if (!ignoreHelpers.has(workspaceRoot)) {
           ignoreHelpers.set(workspaceRoot, new GitIgnoreHelper(workspaceRoot));
         }
         ignoreHelper = ignoreHelpers.get(workspaceRoot)!;
       }
 
-      if (ignoreHelper && ignoreHelper.shouldIgnore(fsPath)) continue;
+      // Check root ignore (unless explicitly included)
+      // Note: We don't have a simple way to check "userIncludes" for the root itself 
+      // without initializing the 'ignore' library here too, but generally strict recursion handles it.
+      // For the root item, we usually let it slide into the recursion unless strict gitignore blocks it.
+      if (useGitIgnore && ignoreHelper && ignoreHelper.shouldIgnore(fsPath)) {
+         // Simple check: is this specific path forced included?
+         const isForcedRoot = userIncludes.some(p => fsPath.includes(p));
+         if (!isForcedRoot) continue;
+      }
 
       const stats = fs.statSync(fsPath);
 
       if (stats.isDirectory()) {
-        // Pass empty [] for includes, undefined for onSkip
-        const children = getAllFilesRecursively(fsPath, ignoreHelper, userExcludes, [], undefined);
+        const children = getAllFilesRecursively(fsPath, ignoreHelper, userExcludes, userIncludes, undefined);
         for (const childPath of children) {
           if (copyContent) {
             const result = processFile(childPath, workspaceRoot || commonBasePath);
@@ -90,7 +103,15 @@ async function processSelections(
     ? processedFiles.map(f => f.absolutePath) 
     : processedPaths;
 
-  const finalOutput = generateOutput(processedFiles, pathsForTree, commonBasePath, copyContent, template);
+  const finalOutput = generateOutput(
+    processedFiles, 
+    pathsForTree, 
+    commonBasePath, 
+    copyContent, 
+    fileTemplate, 
+    treeTemplate,
+    structureFormat
+  );
 
   if (!finalOutput) {
     vscode.window.showWarningMessage("No files processed.");
