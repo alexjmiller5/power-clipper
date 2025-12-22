@@ -1,4 +1,3 @@
-// src/binaryDetector.ts
 import * as fs from 'fs';
 
 export class BinaryDetector {
