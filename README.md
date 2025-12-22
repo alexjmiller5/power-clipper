@@ -28,6 +28,7 @@ Customize the output format in VS Code Settings (`Cmd+,` -> Search "Power Clippe
 | `powerClipper.useGitIgnore` | Whether to respect the project's .gitignore file. | `true` |
 | `powerClipper.alwaysExclude` | List of glob patterns to always ignore (e.g. `**/secrets/**`) | `[]` |
 | `powerClipper.alwaysInclude` | List of glob patterns to always include, overriding gitignore (e.g. `.env`) | `[]` |
+
 ### Keybindings
 
 You can customize these shortcuts in VS Code's Keyboard Shortcuts editor (`Cmd+K Cmd+S` on Mac, `Ctrl+K Ctrl+S` on Windows/Linux) by searching for "Power Clipper".
@@ -120,3 +121,4 @@ code --install-extension power-clipper-1.0.0.vsix
 ## TODO
 
 - [x] Add support for globs in the include/exclude setting patterns
+- [ ] Add logs for skipped files in extension same as CLI

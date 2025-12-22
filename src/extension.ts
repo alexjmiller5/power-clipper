@@ -13,11 +13,37 @@ import {
 } from "./core";
 
 async function getSelectedFiles(): Promise<vscode.Uri[]> {
-    const visibleTextEditors = vscode.window.visibleTextEditors;
-    if (visibleTextEditors.length > 0) {
-      const active = vscode.window.activeTextEditor;
-      if (active) return [active.document.uri];
+    // HACK: VS Code doesn't pass Explorer selection to hotkeys.
+    // Workaround: Trigger native 'copyFilePath', read the clipboard, and parse paths.
+    try {
+        await vscode.commands.executeCommand('copyFilePath');
+        const pathsText = await vscode.env.clipboard.readText();
+        
+        if (pathsText) {
+            // Split by newline to handle multiple selections
+            const rawPaths = pathsText.split(/\r?\n/).filter(p => p.trim() !== '');
+            const validUris: vscode.Uri[] = [];
+
+            for (const p of rawPaths) {
+                // Ensure the path actually exists to avoid processing random clipboard text
+                if (fs.existsSync(p)) {
+                    validUris.push(vscode.Uri.file(p));
+                }
+            }
+
+            if (validUris.length > 0) {
+                return validUris;
+            }
+        }
+    } catch (error) {
+        console.error("Multi-select workaround failed:", error);
     }
+
+    // Fallback: If hack fails, just grab the active editor
+    if (vscode.window.activeTextEditor) {
+        return [vscode.window.activeTextEditor.document.uri];
+    }
+    
     return [];
 }
 

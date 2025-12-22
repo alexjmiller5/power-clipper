@@ -84,12 +84,12 @@
     "commands": [
       {
         "command": "power-clipper.copyFilesContent",
-        "title": "Power Clipper: Copy Content & Path",
+        "title": "Power Clipper: Copy Files & Paths",
         "category": "Power Clipper"
       },
       {
         "command": "power-clipper.copyFolderStructure",
-        "title": "Power Clipper: Copy Tree Structure Only",
+        "title": "Power Clipper: Copy Tree Structure",
         "category": "Power Clipper"
       }
     ],
@@ -107,6 +107,12 @@
         "when": "filesExplorerFocus"
       }
     ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "vscode-test"
   },
   "devDependencies": {
     "@types/mime-types": "^2.1.4",
