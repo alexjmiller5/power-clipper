@@ -8,7 +8,7 @@
     "url": "https://github.com/alexjmiller5/power-clipper"
   },
   "icon": "logo.png",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "engines": {
     "vscode": "^1.104.0"
   },
@@ -22,82 +22,126 @@
     "clipboard",
     "llm",
     "gpt",
-    "context",
-    "tree"
+    "context"
   ],
-  "configuration": {
-    "title": "Power Clipper",
-    "properties": {
-      "powerClipper.fileTemplate": {
-        "type": "string",
-        "default": "### `{{relativePath}}`\n\n```{{language}}\n{{content}}\n```\n\n",
-        "description": "Template for file contents. Vars: {{fileName}}, {{repoPath}}, {{relativePath}}, {{absolutePath}}, {{content}}"
-      },
-      "powerClipper.treeTemplate": {
-        "type": "string",
-        "default": "## File Structure\n```\n{{tree}}\n```\n\n",
-        "description": "Template for tree output. Available variable: {{tree}}"
-      },
-      "powerClipper.alwaysExclude": {
-        "type": "array",
-        "default": [],
-        "description": "Array of folder/file names to always exclude"
-      },
-      "powerClipper.alwaysInclude": {
-        "type": "array",
-        "default": [],
-        "description": "Array of folder/file names to always include"
-      },
-      "powerClipper.useGitIgnore": {
-        "type": "boolean",
-        "default": true,
-        "description": "If true, respects the .gitignore file in the workspace root."
-      }
-    },
-    "powerClipper.structureFormat": {
-      "type": "string",
-      "enum": [
-        "repo",
-        "relative",
-        "absolute"
-      ],
-      "default": "repo",
-      "description": "Determines the root of the generated tree. 'repo' (starts at git root), 'relative' (starts at selection), 'absolute' (full system path)."
-    }
-  },
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Power Clipper",
+      "properties": {
+        "powerClipper.fileTemplate": {
+          "type": "string",
+          "default": "### `{{relativePath}}`\n\n```{{language}}\n{{content}}\n```\n\n",
+          "description": "Template for file contents."
+        },
+        "powerClipper.treeTemplate": {
+          "type": "string",
+          "default": "## File Structure\n```\n{{tree}}\n```\n\n",
+          "description": "Template for tree output."
+        },
+        "powerClipper.alwaysExclude": {
+          "type": "array",
+          "default": [],
+          "description": "Array of glob patterns to always exclude (e.g. **/node_modules)",
+          "scope": "resource"
+        },
+        "powerClipper.alwaysInclude": {
+          "type": "array",
+          "default": [],
+          "description": "Array of glob patterns to always include",
+          "scope": "resource"
+        },
+        "powerClipper.useGitIgnore": {
+          "type": "boolean",
+          "default": true,
+          "description": "If true, respects the .gitignore file.",
+          "scope": "resource"
+        },
+        "powerClipper.structureFormat": {
+          "type": "string",
+          "enum": [
+            "repo",
+            "relative",
+            "absolute"
+          ],
+          "default": "repo",
+          "description": "Root of the generated tree/paths.",
+          "scope": "resource"
+        }
+      }
+    },
     "menus": {
       "explorer/context": [
         {
-          "command": "power-clipper.copyFilesContent",
+          "command": "power-clipper.copyFilesContentOnly",
           "group": "6_copypath@1",
           "when": "filesExplorerFocus"
         },
         {
-          "command": "power-clipper.copyFolderStructure",
+          "command": "power-clipper.copyFilesFull",
           "group": "6_copypath@2",
+          "when": "filesExplorerFocus"
+        },
+        {
+          "command": "power-clipper.copyFolderStructure",
+          "group": "6_copypath@3",
+          "when": "filesExplorerFocus"
+        },
+        {
+          "command": "power-clipper.excludeGlobally",
+          "group": "7_modification@1",
+          "when": "filesExplorerFocus"
+        },
+        {
+          "command": "power-clipper.excludeFromProject",
+          "group": "7_modification@2",
           "when": "filesExplorerFocus"
         }
       ]
     },
     "commands": [
       {
-        "command": "power-clipper.copyFilesContent",
-        "title": "Power Clipper: Copy Files & Paths",
+        "command": "power-clipper.debugConfig",
+        "title": "Power Clipper: Debug Configuration",
+        "category": "Power Clipper"
+      },
+      {
+        "command": "power-clipper.copyFilesContentOnly",
+        "title": "Power Clipper: Copy Content Only (Default)",
+        "category": "Power Clipper"
+      },
+      {
+        "command": "power-clipper.copyFilesFull",
+        "title": "Power Clipper: Copy Content & Tree",
         "category": "Power Clipper"
       },
       {
         "command": "power-clipper.copyFolderStructure",
-        "title": "Power Clipper: Copy Tree Structure",
+        "title": "Power Clipper: Copy Tree Only",
+        "category": "Power Clipper"
+      },
+      {
+        "command": "power-clipper.excludeGlobally",
+        "title": "Exclude from Power Clipper (Global)",
+        "category": "Power Clipper"
+      },
+      {
+        "command": "power-clipper.excludeFromProject",
+        "title": "Exclude from Power Clipper (Project)",
         "category": "Power Clipper"
       }
     ],
     "keybindings": [
       {
-        "command": "power-clipper.copyFilesContent",
+        "command": "power-clipper.copyFilesContentOnly",
         "key": "ctrl+shift+c",
-        "mac": "cmd+shiftt+c",
+        "mac": "cmd+shift+c",
+        "when": "filesExplorerFocus"
+      },
+      {
+        "command": "power-clipper.copyFilesFull",
+        "key": "ctrl+shift+alt+c",
+        "mac": "cmd+shift+opt+c",
         "when": "filesExplorerFocus"
       },
       {

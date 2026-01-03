@@ -1,0 +1,6 @@
+{
+  "powerClipper.alwaysExclude": [
+    "**/logo.png",
+    "**/package-lock.json"
+  ]
+}

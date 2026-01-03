@@ -10,7 +10,6 @@ export const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3 MB
 export const DEFAULT_FILE_TEMPLATE = "### `{{relativePath}}`\n\n```{{language}}\n{{content}}\n```\n\n";
 export const DEFAULT_TREE_TEMPLATE = "## File Structure\n```\n{{tree}}\n```\n\n";
 
-// "tree" is now "relative" (legacy default), but we will make "repo" the new default in config
 export type StructureFormat = 'relative' | 'absolute' | 'repo';
 
 export interface PathDetails {
@@ -139,17 +138,15 @@ export function formatContent(result: FileProcessingResult, template: string): s
     .replace(/{{content}}/g, result.content);
 }
 
-// Rewritten: Builds a tree from ANY list of path strings (repo-scoped, absolute, etc.)
 export function buildFileTree(pathStrings: string[]): FileTreeNode {
   const root: FileTreeNode = {
-    name: 'root', // Virtual root
+    name: 'root', 
     path: '',
     isDirectory: true,
     children: []
   };
 
   for (const p of pathStrings) {
-    // Split by / or \
     const parts = p.split(/[/\\]/).filter(Boolean); 
     let currentNode = root;
     let currentPath = '';
@@ -165,7 +162,7 @@ export function buildFileTree(pathStrings: string[]): FileTreeNode {
         existingChild = {
           name: part,
           path: currentPath,
-          isDirectory: !isLastPart, // Crude assumption, but works for visualization
+          isDirectory: !isLastPart, 
           children: []
         };
         currentNode.children.push(existingChild);
@@ -174,26 +171,20 @@ export function buildFileTree(pathStrings: string[]): FileTreeNode {
     }
   }
 
-  // Optimize: If there is only one top-level folder (e.g. "my-repo"), return that as the root
-  // instead of the virtual "root".
   if (root.children.length === 1) {
     return root.children[0];
   }
 
-  // Otherwise return the virtual root (acting as "Current Selection" or similar)
-  // We can rename it to "." to indicate CWD if there are multiple top-level items
   root.name = '.';
   return root;
 }
 
 export function generateTreeString(node: FileTreeNode, prefix: string = '', isLast: boolean = true): string {
   let result = '';
-  // Only print the node name if it's not the virtual empty root
   if (node.path !== '') {
     const connector = isLast ? '└── ' : '├── ';
     result += prefix + connector + node.name + '\n';
   } else if (node.name !== 'root' && node.name !== '') {
-     // Print "." or base folder name
      result += node.name + '/\n';
   }
 
@@ -202,7 +193,6 @@ export function generateTreeString(node: FileTreeNode, prefix: string = '', isLa
     : prefix + (isLast ? '    ' : '│   ');
     
   const sortedChildren = [...node.children].sort((a, b) => {
-    // Directories first, then files
     if (a.children.length > 0 && b.children.length === 0) return -1;
     if (a.children.length === 0 && b.children.length > 0) return 1;
     return a.name.localeCompare(b.name);
@@ -220,14 +210,14 @@ export function generateOutput(
   allSelectedPaths: string[], 
   basePath: string, 
   includeContent: boolean,
+  includeTree: boolean,
   fileTemplate: string = DEFAULT_FILE_TEMPLATE,
   treeTemplate: string = DEFAULT_TREE_TEMPLATE,
-  structureFormat: StructureFormat = 'repo' // Default changed to 'repo' as requested
+  structureFormat: StructureFormat = 'repo' 
 ): string {
   let finalOutput = '';
 
-  if (allSelectedPaths.length > 0) {
-    // 1. Calculate the strings we want to graph based on the setting
+  if (includeTree && allSelectedPaths.length > 0) {
     const pathsToGraph = allSelectedPaths.map(p => {
       const details = getPathDetails(p, basePath);
       if (structureFormat === 'absolute') return details.absolutePath;
@@ -235,11 +225,8 @@ export function generateOutput(
       return details.relativePath;
     });
 
-    // 2. Build the tree from those strings
     const tree = buildFileTree(pathsToGraph);
     
-    // 3. Generate ASCII
-    // If the tree root has a name (like "my-repo"), start with that.
     const treeHeader = (tree.name !== 'root' && tree.path !== '') ? `${tree.name}/\n` : '';
     const treeBody = treeHeader + generateTreeString(tree);
     

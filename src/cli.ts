@@ -27,22 +27,37 @@ function unescapeString(str: string): string {
 if (args.includes('--help') || args.includes('-h') || args.length === 0) {
   console.log(`
   Usage: pclip [path1] [path2] ... [options]
-  
+   
   Options:
-    --tree-only           Only output file structure
-    --print               Print to console instead of copying to clipboard
-    --no-gitignore        Do not respect .gitignore rules
-    --exclude <str>       Exclude paths containing string
-    --include <str>       Force include paths (overrides ignore rules)
-    --file-template <str> File format. ({{fileName}}, {{repoPath}}, {{relativePath}}, {{absolutePath}}, {{content}})
-    --tree-template <str> Tree structure format. ({{tree}})
+    --mode <type>             Set output mode: 'content' (default), 'tree', 'full'
+    --tree-only               Alias for --mode tree (deprecated)
+    --print                   Print to console instead of copying to clipboard
+    --no-gitignore            Do not respect .gitignore rules
+    --exclude <str>           Exclude glob pattern (e.g. "**/secret.js")
+    --include <str>           Force include paths (overrides ignore rules)
+    --file-template <str>     File format. 
+    --tree-template <str>     Tree structure format. 
+    --structure <type>        repo | relative | absolute
   `);
   process.exit(0);
 }
 
-const copyContent = !args.includes('--tree-only');
+// Mode Logic
+let mode: 'content' | 'tree' | 'full' = 'content'; // New Default
+if (args.includes('--tree-only')) {
+    mode = 'tree';
+}
+
+const modeIndex = args.indexOf('--mode');
+if (modeIndex !== -1 && args[modeIndex + 1]) {
+    const m = args[modeIndex + 1].toLowerCase();
+    if (['content', 'tree', 'full'].includes(m)) {
+        mode = m as any;
+    }
+}
+
 const printMode = args.includes('--print');
-const noGitIgnore = args.includes('--no-gitignore'); // Check flag
+const noGitIgnore = args.includes('--no-gitignore');
 const excludes: string[] = [];
 const includes: string[] = [];
 const targetPaths: string[] = [];
@@ -50,6 +65,7 @@ let fileTemplate = DEFAULT_FILE_TEMPLATE;
 let treeTemplate = DEFAULT_TREE_TEMPLATE;
 let structureFormat: StructureFormat = 'repo';
 
+// Argument Parsing
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
   if (arg === '--exclude' && args[i+1]) {
@@ -64,30 +80,25 @@ for (let i = 0; i < args.length; i++) {
   } else if (arg === '--tree-template' && args[i+1]) {
     treeTemplate = unescapeString(args[i+1]);
     i++;
+  } else if (arg === '--structure' && args[i+1]) {
+    structureFormat = args[i+1] as StructureFormat;
+    i++;
+  } else if (arg === '--mode' && args[i+1]) {
+    // handled above, just skip
+    i++;
   } else if (arg.startsWith('--')) {
     continue;
-  } else if (arg === '--structure' && args[i+1]) {
-    const val = args[i+1];
-    if (['repo', 'relative', 'absolute'].includes(val)) {
-        structureFormat = val as StructureFormat;
-    } else {
-        console.error("Invalid structure. Use: repo, relative, absolute");
-        process.exit(1);
-    }
-    i++;
-  }
-  else {
+  } else {
+    // It's a path
     targetPaths.push(path.resolve(cwd, arg));
   }
 }
 
 async function run() {
-  // Pass null if flag is set, otherwise load the helper
   const ignoreHelper = noGitIgnore ? null : new GitIgnoreHelper(cwd);
   
   const onSkip = (skippedPath: string, reason: string) => {
-    const rel = path.relative(cwd, skippedPath);
-    console.error(`[Skipped] ${rel} (${reason})`);
+    // Optional: Verbose logging can go here
   };
 
   const processedFiles: FileProcessingResult[] = [];
@@ -108,8 +119,10 @@ async function run() {
       filesToProcess = [targetPath];
     }
 
+    const needContent = mode !== 'tree';
+
     for (const file of filesToProcess) {
-      if (copyContent) {
+      if (needContent) {
         if (processedFiles.some(f => f.absolutePath === file)) continue;
         const res = processFile(file, cwd);
         if (res) processedFiles.push(res);
@@ -120,22 +133,27 @@ async function run() {
     }
   }
 
-  const pathsForTree = copyContent ? processedFiles.map(f => f.absolutePath) : processedPaths;
+  const needContent = mode !== 'tree';
+  const needTree = mode !== 'content';
+
+  const pathsForTree = needContent ? processedFiles.map(f => f.absolutePath) : processedPaths;
   
   const output = generateOutput(
     processedFiles, 
     pathsForTree, 
     cwd, 
-    copyContent, 
+    needContent, 
+    needTree,
     fileTemplate, 
-    treeTemplate
+    treeTemplate,
+    structureFormat
   );
 
   if (printMode) {
     console.log(output);
   } else {
     clipboardy.writeSync(output);
-    console.log(`Success: Copied ${processedFiles.length} files to clipboard!`);
+    console.log(`Success: Copied ${needContent ? processedFiles.length : processedPaths.length} items to clipboard (Mode: ${mode})`);
   }
 }
 
