@@ -117,7 +117,3 @@ brew install vsce
 vsce package
 code --install-extension power-clipper-1.0.0.vsix
 ```
-
-## Roadmap
-
-Project tasks and TODOs are tracked in [Notion](https://www.notion.so).
