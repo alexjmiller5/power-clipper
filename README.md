@@ -117,18 +117,3 @@ brew install vsce
 vsce package
 code --install-extension power-clipper-1.0.0.vsix
 ```
-
-## TODO
-
-- [x] Add support for globs in the include/exclude setting patterns
-- [ ] Add logs for skipped files in extension same as CLI
-- [ ] Figure out how licensing works - because I forked this, can I post it on homebrew / vscode under my own name?
-- [ ] Get some beta testers to try it out and give feedback before I launch - do a Google Form but also allow them to give me feedback directly
-- [ ] add line numbers as a toggle switch if you want to give that to ai too
-- [ ] add a count of how many lines are characters were copied in addition to number of files (include a recommendation / reminder of how many tokens / characters is good for different LLMs - or just learn the token count for the LLMs I use myself)
-- [ ] Make a setting for if you want the entire project tree copied with all files or just the strucutre that includes the selected files
-- [ ] Make a settings for having the project tree appended to the copied content or not (idk if i necesarily always want the tree to be copied along with the content)
-- [ ] Make the exclude pattern for the cli align better with the vscode settings - maybe it'll be able to read the vscode settings file directly? Or maybe it'll have its own config file? Not sure, have to do more user exploration to determine this
-- [ ] The file structure seems to copy the outer folder an extra time as a non existent file at the root level - need to fix that
-- [ ] Instead of hardcoding the node_modules and other common exclusions, just include them as default settings that can be overridden by the user if they like - this will also give the user more clartiy on how to use the extension
-- [ ] Make the CLI looks for the exclusions in the vscode settings file if it exists in the project - this will help keep the cli and extension behavior more aligned
